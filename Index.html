@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Water Potential Interactive Lab</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            overscroll-behavior: none;
+        }
+        .control-panel {
+            background-color: #f8fafc;
+        }
+        .slider-label {
+            min-width: 150px;
+        }
+        .value-display {
+            font-weight: 600;
+            color: #1d4ed8;
+            min-width: 80px;
+        }
+        canvas {
+            background-color: #ffffff;
+            border-radius: 0.5rem;
+            border: 1px solid #e2e8f0;
+        }
+        .variable-term {
+            font-family: monospace;
+            font-weight: bold;
+            color: #be123c; /* Rose-700 */
+            background-color: #fce7f3; /* Rose-100 */
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-900">Water Potential (Ψ) Interactive Lab</h1>
+            <p class="mt-2 text-lg text-gray-600 max-w-3xl mx-auto">Explore how water moves across membranes by manipulating solute concentration and environmental conditions.</p>
+        </header>
+
+        <!-- Simulation Section 1: Cell in a Beaker -->
+        <div class="bg-white rounded-xl shadow-lg p-6 md:p-8 mb-8">
+            <h2 class="text-2xl font-bold mb-4 text-center">Part 1: The Plant Cell in Solution</h2>
+            <div class="flex flex-col lg:flex-row gap-8 items-center">
+                <!-- Canvas for Cell Simulation -->
+                <div class="w-full lg:w-1/2 h-80">
+                    <canvas id="cellCanvas"></canvas>
+                </div>
+                <!-- Controls and Calculations for Cell -->
+                <div class="w-full lg:w-1/2 space-y-4">
+                    <p class="text-sm text-gray-600 text-center">The formula for solute potential is <strong class="text-gray-800">Ψs = -iCRT</strong>. Use the controls below to see how each variable affects the outcome.</p>
+                    
+                    <!-- Environmental Controls -->
+                    <div class="control-panel p-4 rounded-lg border border-gray-200">
+                        <h3 class="font-semibold text-lg mb-3 text-purple-700">Environmental Conditions</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center space-x-4">
+                                <label for="temperature" class="slider-label text-gray-700">Temperature:</label>
+                                <input type="range" id="temperature" min="0" max="50" step="1" value="25" class="w-full">
+                                <span id="temperatureValue" class="value-display text-right">25 °C</span>
+                            </div>
+                            <div class="flex items-center space-x-4">
+                                <label for="soluteType" class="slider-label text-gray-700">Solute Type:</label>
+                                <select id="soluteType" class="w-full p-2 border border-gray-300 rounded-md">
+                                    <option value="1">Sucrose (i=1)</option>
+                                    <option value="2">NaCl (i=2)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Beaker Controls -->
+                    <div class="control-panel p-4 rounded-lg border border-gray-200">
+                        <h3 class="font-semibold text-lg mb-3 text-blue-700">Beaker Environment</h3>
+                        <div class="flex items-center space-x-4">
+                            <label for="beakerMolarity" class="slider-label text-gray-700">Solute Molarity:</label>
+                            <input type="range" id="beakerMolarity" min="0" max="1.0" step="0.01" value="0.2" class="w-full">
+                            <span id="beakerMolarityValue" class="value-display text-right">0.20 M</span>
+                        </div>
+                         <div class="mt-2 text-md font-medium text-center">
+                            Beaker Ψ = <span id="beakerPotential" class="text-blue-600">-4.95 bars</span>
+                        </div>
+                    </div>
+
+                    <!-- Cell Controls -->
+                    <div class="control-panel p-4 rounded-lg border border-gray-200">
+                        <h3 class="font-semibold text-lg mb-3 text-green-700">Plant Cell Cytosol</h3>
+                        <div class="flex items-center space-x-4">
+                            <label for="cellMolarity" class="slider-label text-gray-700">Solute Molarity:</label>
+                            <input type="range" id="cellMolarity" min="0" max="1.0" step="0.01" value="0.4" class="w-full">
+                            <span id="cellMolarityValue" class="value-display text-right">0.40 M</span>
+                        </div>
+                        <div class="mt-2 text-md font-medium text-center">
+                             Cell Ψ = <span id="cellPotential" class="text-green-600">-9.91 bars</span>
+                        </div>
+                    </div>
+                    
+                    <div id="waterDirection" class="text-center font-bold text-xl p-3 rounded-lg bg-indigo-100 text-indigo-800">
+                        Net water movement is INTO the cell.
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Explanation Section -->
+        <div class="bg-white rounded-xl shadow-lg p-6 md:p-8 mb-8">
+            <h2 class="text-2xl font-bold mb-4 text-center">Understanding the Solute Potential Formula (Ψs = -iCRT)</h2>
+            <div class="space-y-4 text-gray-700">
+                <p>The addition of solutes to water lowers the water's free energy, which reduces its water potential. The solute potential (Ψs) quantifies this effect. Here's a breakdown of each component:</p>
+                <ul class="space-y-3 list-disc list-inside bg-gray-50 p-4 rounded-lg">
+                    <li><strong class="text-gray-800">The Negative Sign (-):</strong> Solute potential is always negative (or zero for pure water). The negative sign indicates that solutes <span class="font-semibold">reduce</span> the water potential compared to pure water.</li>
+                    <li><span class="variable-term">i</span> = <strong class="text-gray-800">Ionization Constant:</strong> This represents the number of individual particles a solute dissociates into when dissolved. You can change this in the simulation above.
+                        <ul class="ml-6 mt-1 text-sm list-square">
+                            <li>For a non-ionizing molecule like sucrose, <span class="variable-term">i = 1</span>.</li>
+                            <li>For an ionic compound like salt (NaCl), which splits into Na⁺ and Cl⁻, <span class="variable-term">i = 2</span>.</li>
+                        </ul>
+                    </li>
+                    <li><span class="variable-term">C</span> = <strong class="text-gray-800">Molar Concentration:</strong> This is the molarity of the solution (moles of solute per liter). The higher the concentration of solutes, the more negative the solute potential becomes.</li>
+                    <li><span class="variable-term">R</span> = <strong class="text-gray-800">Pressure Constant:</strong> This is a universal constant. Its value is <span class="font-semibold">0.0831 L·bar/mol·K</span>.</li>
+                    <li><span class="variable-term">T</span> = <strong class="text-gray-800">Temperature:</strong> This is the temperature in <span class="font-semibold">Kelvin (K)</span>. Higher temperatures increase the kinetic energy of molecules, amplifying the effect of the solutes. You can adjust this in the simulation. To convert from Celsius, use the formula: K = °C + 273.</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Simulation Section 2: Tree -->
+        <div class="bg-white rounded-xl shadow-lg p-6 md:p-8 mb-8">
+            <h2 class="text-2xl font-bold mb-4 text-center">Part 2: Water Transport in a Tree</h2>
+            <div class="flex flex-col lg:flex-row gap-8 items-center">
+                <!-- Canvas for Tree Simulation -->
+                <div class="w-full lg:w-1/2 h-96">
+                    <canvas id="treeCanvas"></canvas>
+                </div>
+                <!-- Controls and Displays for Tree -->
+                <div class="w-full lg:w-1/2 space-y-4">
+                     <p class="text-sm text-gray-600">Water moves up a tree through the xylem via tension created by transpiration. This creates a strong negative water potential gradient from roots to leaves.</p>
+                    
+                    <div class="control-panel p-4 rounded-lg border border-gray-200">
+                        <h3 class="font-semibold text-lg mb-3 text-yellow-800">Soil & Atmosphere</h3>
+                        <div class="flex items-center space-x-4 mb-3">
+                            <label for="soilWater" class="slider-label text-gray-700">Soil Moisture:</label>
+                            <input type="range" id="soilWater" min="-2.0" max="-0.1" step="0.05" value="-0.3" class="w-full">
+                            <span id="soilWaterValue" class="value-display text-right">-0.3 bars</span>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <label for="transpiration" class="slider-label text-gray-700">Transpiration:</label>
+                            <input type="range" id="transpiration" min="1" max="10" step="1" value="5" class="w-full">
+                            <span id="transpirationValue" class="value-display text-right">Medium</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 text-center">
+                        <div class="bg-gray-100 p-3 rounded-lg">
+                            <h4 class="font-semibold">Atmosphere Ψ</h4>
+                            <p id="airPotential" class="text-xl font-bold text-red-600">-95 bars</p>
+                        </div>
+                        <div class="bg-gray-100 p-3 rounded-lg">
+                            <h4 class="font-semibold">Leaf Ψ</h4>
+                            <p id="leafPotential" class="text-xl font-bold text-orange-600">-15 bars</p>
+                        </div>
+                        <div class="bg-gray-100 p-3 rounded-lg">
+                            <h4 class="font-semibold">Xylem Ψ</h4>
+                            <p id="xylemPotential" class="text-xl font-bold text-cyan-600">-8 bars</p>
+                        </div>
+                        <div class="bg-gray-100 p-3 rounded-lg">
+                            <h4 class="font-semibold">Root Ψ</h4>
+                            <p id="rootPotential" class="text-xl font-bold text-green-600">-2 bars</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- AP Style Questions Section -->
+        <div class="bg-white rounded-xl shadow-lg p-6 md:p-8">
+            <h2 class="text-2xl font-bold mb-6 text-center">AP-Style Practice Questions</h2>
+            <div id="questionsContainer" class="space-y-6">
+                <!-- Question 1 -->
+                <div class="bg-gray-50 border border-gray-200 p-4 rounded-lg">
+                    <p class="font-semibold text-gray-800 mb-2">Question 1 (Foundational): A plant cell with a solute potential of -0.75 MPa is placed in a beaker of pure water (Ψ = 0 MPa). In which direction will the net movement of water occur, and what will happen to the turgor pressure inside the cell?</p>
+                    <button class="toggle-explanation-btn text-sm font-semibold text-blue-600 hover:text-blue-800">Show Explanation</button>
+                    <div class="explanation hidden mt-2 p-3 bg-blue-50 rounded-md text-gray-700">
+                        <p><strong>Explanation:</strong> Water moves from an area of higher water potential to an area of lower water potential. Since the pure water has a Ψ of 0 MPa and the cell has an initial Ψ of -0.75 MPa, water will move <strong class="text-gray-900">into the cell</strong>. As water enters, the cell membrane will press against the rigid cell wall, causing the turgor pressure (pressure potential, Ψp) to increase. This influx of water will continue until the cell's total water potential (Ψ = Ψs + Ψp) becomes equal to the water potential of the beaker (0 MPa), at which point equilibrium is reached.</p>
+                    </div>
+                </div>
+                <!-- Question 2 -->
+                <div class="bg-gray-50 border border-gray-200 p-4 rounded-lg">
+                    <p class="font-semibold text-gray-800 mb-2">Question 2 (Higher-Level): A farmer in a coastal region irrigates crops with water that has a slight salt concentration, resulting in a soil water potential of -0.4 MPa. The crop's root cells have a solute potential of -0.6 MPa. After a long period without rain, evaporation increases the salt concentration in the soil, lowering the soil water potential to -0.8 MPa. What is the immediate consequence for the plant, and what long-term adaptation might plants in such environments possess?</p>
+                    <button class="toggle-explanation-btn text-sm font-semibold text-blue-600 hover:text-blue-800">Show Explanation</button>
+                    <div class="explanation hidden mt-2 p-3 bg-blue-50 rounded-md text-gray-700">
+                        <p><strong>Explanation:</strong> Initially, the water potential gradient is from the soil (-0.4 MPa) to the root (-0.6 MPa), so the plant can absorb water. When the soil water potential drops to -0.8 MPa, the gradient reverses. The soil now has a lower water potential than the roots. The immediate consequence is that water will move <strong class="text-gray-900">out of the plant's roots and into the soil</strong> via osmosis, causing the plant to lose turgor and wilt (a process called plasmolysis). A long-term adaptation for plants in saline environments (halophytes) is to <strong class="text-gray-900">actively accumulate solutes</strong> in their root cells. This lowers their internal solute potential to a value more negative than the surrounding soil, allowing them to maintain a favorable water potential gradient and continue absorbing water even in salty conditions.</p>
+                    </div>
+                </div>
+                 <!-- Container for new questions -->
+                <div id="newQuestionContainer" class="space-y-6"></div>
+            </div>
+            <div class="text-center mt-6">
+                <button id="generateQuestionBtn" class="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors">Generate New Practice Question</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- Shared Constants ---
+        const GAS_CONSTANT = 0.0831; // Pressure constant (L·bar/mol·K)
+        const calculateSolutePotential = (molarity, i, tempKelvin) => -i * molarity * GAS_CONSTANT * tempKelvin;
+
+        // --- Simulation 1: Cell in Beaker ---
+        const cellCanvas = document.getElementById('cellCanvas');
+        const cellCtx = cellCanvas.getContext('2d');
+        const beakerMolaritySlider = document.getElementById('beakerMolarity');
+        const cellMolaritySlider = document.getElementById('cellMolarity');
+        const temperatureSlider = document.getElementById('temperature');
+        const soluteTypeSelect = document.getElementById('soluteType');
+        
+        const beakerMolarityValue = document.getElementById('beakerMolarityValue');
+        const cellMolarityValue = document.getElementById('cellMolarityValue');
+        const temperatureValue = document.getElementById('temperatureValue');
+
+        const beakerPotentialDisplay = document.getElementById('beakerPotential');
+        const cellPotentialDisplay = document.getElementById('cellPotential');
+        const waterDirectionDisplay = document.getElementById('waterDirection');
+
+        let cellScale = 1.0;
+
+        function drawCellSimulation() {
+            // Resize canvas to fit container
+            const rect = cellCanvas.parentElement.getBoundingClientRect();
+            cellCanvas.width = rect.width;
+            cellCanvas.height = rect.height;
+
+            const width = cellCanvas.width;
+            const height = cellCanvas.height;
+
+            cellCtx.clearRect(0, 0, width, height);
+
+            // --- Get values from all controls ---
+            const beakerMolarity = parseFloat(beakerMolaritySlider.value);
+            const cellMolarity = parseFloat(cellMolaritySlider.value);
+            const temperatureCelsius = parseInt(temperatureSlider.value);
+            const temperatureKelvin = temperatureCelsius + 273;
+            const solute_i = parseInt(soluteTypeSelect.value);
+            
+            // --- Update UI Displays ---
+            beakerMolarityValue.textContent = `${beakerMolarity.toFixed(2)} M`;
+            cellMolarityValue.textContent = `${cellMolarity.toFixed(2)} M`;
+            temperatureValue.textContent = `${temperatureCelsius} °C`;
+
+            // --- Calculations ---
+            const beakerPotential = calculateSolutePotential(beakerMolarity, solute_i, temperatureKelvin);
+            const cellSolutePotential = calculateSolutePotential(cellMolarity, solute_i, temperatureKelvin);
+            const potentialDifference = beakerPotential - cellSolutePotential;
+
+            let cellPressurePotential = 0;
+            if (cellSolutePotential < beakerPotential) {
+                 cellPressurePotential = Math.min(Math.abs(cellSolutePotential) * 0.5, Math.abs(potentialDifference) * 0.8);
+            }
+             const cellTotalPotential = cellSolutePotential + cellPressurePotential;
+
+            beakerPotentialDisplay.textContent = `${beakerPotential.toFixed(2)} bars`;
+            cellPotentialDisplay.textContent = `${cellTotalPotential.toFixed(2)} bars`;
+
+            // --- Determine water movement and update cell size ---
+            const netPotentialDifference = beakerPotential - cellTotalPotential;
+
+            let directionText = '';
+            let directionColorClass = '';
+            if (Math.abs(netPotentialDifference) < 0.1) {
+                directionText = "Water is at equilibrium (Isotonic).";
+                directionColorClass = 'bg-gray-100 text-gray-800';
+                 cellScale += (1.0 - cellScale) * 0.1; // return to normal
+            } else if (netPotentialDifference < 0) {
+                directionText = "Net water movement is INTO the cell (Hypotonic solution).";
+                directionColorClass = 'bg-green-100 text-green-800';
+                cellScale += (1.2 - cellScale) * 0.1; // Swell towards 120%
+            } else {
+                directionText = "Net water movement is OUT of the cell (Hypertonic solution).";
+                directionColorClass = 'bg-red-100 text-red-800';
+                cellScale += (0.7 - cellScale) * 0.1; // Shrink towards 70%
+            }
+            waterDirectionDisplay.textContent = directionText;
+            waterDirectionDisplay.className = `text-center font-bold text-xl p-3 rounded-lg ${directionColorClass}`;
+
+
+            // --- Drawing ---
+            cellCtx.strokeStyle = '#94a3b8';
+            cellCtx.lineWidth = 4;
+            cellCtx.beginPath();
+            cellCtx.moveTo(width * 0.1, height * 0.9);
+            cellCtx.lineTo(width * 0.1, height * 0.2);
+            cellCtx.lineTo(width * 0.9, height * 0.2);
+            cellCtx.lineTo(width * 0.9, height * 0.9);
+            cellCtx.closePath();
+            cellCtx.stroke();
+
+            cellCtx.fillStyle = 'rgba(56, 189, 248, 0.3)';
+            cellCtx.fillRect(width * 0.1, height * 0.3, width * 0.8, height * 0.6);
+
+            const cellBaseWidth = width * 0.3;
+            const cellBaseHeight = height * 0.5;
+            const cellWidth = cellBaseWidth * cellScale;
+            const cellHeight = cellBaseHeight * cellScale;
+            const cellX = width / 2 - cellWidth / 2;
+            const cellY = height / 2 - cellHeight / 2 + 30;
+
+            cellCtx.fillStyle = 'rgba(34, 197, 94, 0.4)';
+            cellCtx.strokeStyle = '#15803d';
+            cellCtx.lineWidth = 5;
+            cellCtx.beginPath();
+            cellCtx.roundRect(width/2 - cellBaseWidth/2, height/2 - cellBaseHeight/2 + 30, cellBaseWidth, cellBaseHeight, 10);
+            cellCtx.stroke();
+            
+            cellCtx.fillStyle = 'rgba(132, 204, 22, 0.6)';
+            cellCtx.strokeStyle = '#4d7c0f';
+            cellCtx.lineWidth = 2;
+            cellCtx.beginPath();
+            cellCtx.roundRect(cellX, cellY, cellWidth, cellHeight, 8);
+            cellCtx.stroke();
+            cellCtx.fill();
+
+            if (Math.abs(netPotentialDifference) > 0.1) {
+                drawArrow(cellCtx, width / 2, height / 2, netPotentialDifference < 0);
+            }
+            requestAnimationFrame(drawCellSimulation);
+        }
+
+        function drawArrow(ctx, x, y, intoCell) {
+            ctx.fillStyle = '#1e40af';
+            ctx.strokeStyle = '#1e40af';
+            ctx.lineWidth = 3;
+
+            const startX = intoCell ? x + 100 : x - 40;
+            const endX = intoCell ? x + 40 : x - 100;
+
+            ctx.beginPath();
+            ctx.moveTo(startX, y);
+            ctx.lineTo(endX, y);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(endX, y);
+            ctx.lineTo(endX + (intoCell ? 10 : -10), y - 10);
+            ctx.lineTo(endX + (intoCell ? 10 : -10), y + 10);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        // --- Simulation 2: Tree ---
+        const treeCanvas = document.getElementById('treeCanvas');
+        const treeCtx = treeCanvas.getContext('2d');
+        const soilWaterSlider = document.getElementById('soilWater');
+        const transpirationSlider = document.getElementById('transpiration');
+        const soilWaterValue = document.getElementById('soilWaterValue');
+        const transpirationValue = document.getElementById('transpirationValue');
+        const airPotentialDisplay = document.getElementById('airPotential');
+        const leafPotentialDisplay = document.getElementById('leafPotential');
+        const xylemPotentialDisplay = document.getElementById('xylemPotential');
+        const rootPotentialDisplay = document.getElementById('rootPotential');
+
+        const waterParticles = [];
+        let gradientStrength = 1.0;
+
+        function updateTreeDisplays() {
+            const soilPsi = parseFloat(soilWaterSlider.value);
+            const transpirationLevel = parseInt(transpirationSlider.value);
+
+            soilWaterValue.textContent = `${soilPsi.toFixed(2)} bars`;
+            
+            const transLabels = ["", "Very Low", "Low", "Low", "Medium", "Medium", "High", "High", "Very High", "Very High", "Max"];
+            transpirationValue.textContent = transLabels[transpirationLevel];
+            
+            const airPsi = -10 - (transpirationLevel * 18); 
+            const leafPsi = airPsi / 6;
+            const xylemPsi = leafPsi / 2 + soilPsi;
+            const rootPsi = soilPsi * 1.5 - 2;
+
+            airPotentialDisplay.textContent = `${airPsi.toFixed(0)} bars`;
+            leafPotentialDisplay.textContent = `${leafPsi.toFixed(0)} bars`;
+            xylemPotentialDisplay.textContent = `${xylemPsi.toFixed(0)} bars`;
+            rootPotentialDisplay.textContent = `${rootPsi.toFixed(0)} bars`;
+            
+            gradientStrength = Math.abs(rootPsi - leafPsi);
+        }
+
+        function drawTreeSimulation() {
+            const rect = treeCanvas.parentElement.getBoundingClientRect();
+            treeCanvas.width = rect.width;
+            treeCanvas.height = rect.height;
+
+            const width = treeCanvas.width;
+            const height = treeCanvas.height;
+            treeCtx.clearRect(0, 0, width, height);
+            
+            const soilPsi = parseFloat(soilWaterSlider.value);
+            let wiltFactor = 0; 
+            if (gradientStrength > 20 && soilPsi < -1.0) {
+                 wiltFactor = (gradientStrength - 20) * 0.05 + (Math.abs(soilPsi) - 1.0) * 0.2;
+            }
+
+            treeCtx.fillStyle = '#854d0e';
+            treeCtx.fillRect(0, height * 0.9, width, height * 0.1);
+
+            treeCtx.fillStyle = '#a16207';
+            treeCtx.fillRect(width / 2 - 15, height * 0.4, 30, height * 0.5);
+
+            treeCtx.fillStyle = '#166534';
+            treeCtx.beginPath();
+            treeCtx.arc(width / 2, height * 0.3, 100, Math.PI, 2 * Math.PI, false);
+            treeCtx.arc(width / 2 - 60, height * 0.35 - wiltFactor*30, 60, Math.PI, 2 * Math.PI, false);
+            treeCtx.arc(width / 2 + 60, height * 0.35 - wiltFactor*30, 60, Math.PI, 2 * Math.PI, false);
+            treeCtx.closePath();
+            treeCtx.fill();
+            
+            if (Math.random() < gradientStrength * 0.02) {
+                 waterParticles.push({
+                     x: width / 2 - 5 + Math.random() * 10,
+                     y: height * 0.95,
+                     speed: 0.5 + gradientStrength * 0.05
+                 });
+            }
+
+            treeCtx.fillStyle = '#0ea5e9';
+            for (let i = waterParticles.length - 1; i >= 0; i--) {
+                const p = waterParticles[i];
+                p.y -= p.speed;
+                
+                treeCtx.beginPath();
+                treeCtx.arc(p.x, p.y, 3, 0, 2 * Math.PI);
+                treeCtx.fill();
+
+                if (p.y < height * 0.2) {
+                    waterParticles.splice(i, 1);
+                }
+            }
+
+            requestAnimationFrame(drawTreeSimulation);
+        }
+
+        // --- Question Section Logic ---
+        const questionsContainer = document.getElementById('questionsContainer');
+        const generateQuestionBtn = document.getElementById('generateQuestionBtn');
+        const newQuestionContainer = document.getElementById('newQuestionContainer');
+
+        const questionBank = [
+            {
+                question: "If a potato core is placed in a hypertonic sucrose solution, will it gain or lose mass? Explain in terms of water potential.",
+                explanation: "It will <strong class='text-gray-900'>lose mass</strong>. The hypertonic solution has a lower (more negative) water potential than the potato cells. Water will move from the area of higher potential (the potato) to the area of lower potential (the solution) via osmosis, causing the potato to lose water and therefore mass."
+            },
+            {
+                question: "An animal cell (like a red blood cell) is placed in a hypotonic solution. What happens to the cell and why is this different from a plant cell in the same situation?",
+                explanation: "The animal cell will swell and <strong class='text-gray-900'>burst (a process called lysis)</strong>. It takes in water because its internal water potential is lower than the surrounding hypotonic solution. Unlike a plant cell, it has no rigid cell wall to withstand the increase in pressure, so it ruptures. A plant cell in the same situation would become turgid but would not burst."
+            },
+            {
+                question: "You calculate the solute potential of a solution to be -2.5 bars. You add more solute to the solution. Will the new solute potential be a larger or smaller number (e.g., -1.0 or -4.0)? Explain.",
+                explanation: "The new solute potential will be a <strong class='text-gray-900'>smaller number, like -4.0 bars</strong>. Adding more solute particles decreases the free energy of the water and lowers the concentration of water molecules relative to solutes. This makes the water potential more negative."
+            },
+            {
+                question: "Why is the water potential of the atmosphere in the tree simulation almost always the most negative value in the entire system (soil, root, xylem, leaf, air)?",
+                explanation: "The air is typically not saturated with water vapor (i.e., its relative humidity is less than 100%). This large difference in water molecule concentration between the moist interior of a plant's leaf and the drier surrounding air creates a very strong water potential gradient, resulting in a <strong class='text-gray-900'>very negative water potential (Ψ)</strong>. This steep gradient is the primary driving force for transpiration, which pulls the entire column of water up the xylem from the roots."
+            }
+        ];
+
+        function createQuestionElement(q, index) {
+            const questionDiv = document.createElement('div');
+            questionDiv.className = 'bg-gray-50 border border-gray-200 p-4 rounded-lg';
+            
+            const questionP = document.createElement('p');
+            questionP.className = 'font-semibold text-gray-800 mb-2';
+            questionP.textContent = `Question ${index + 3}: ${q.question}`;
+            
+            const button = document.createElement('button');
+            button.className = 'toggle-explanation-btn text-sm font-semibold text-blue-600 hover:text-blue-800';
+            button.textContent = 'Show Explanation';
+            
+            const explanationDiv = document.createElement('div');
+            explanationDiv.className = 'explanation hidden mt-2 p-3 bg-blue-50 rounded-md text-gray-700';
+            explanationDiv.innerHTML = `<p><strong>Explanation:</strong> ${q.explanation}</p>`;
+            
+            questionDiv.appendChild(questionP);
+            questionDiv.appendChild(button);
+            questionDiv.appendChild(explanationDiv);
+            
+            return questionDiv;
+        }
+
+        let questionCounter = 0;
+        generateQuestionBtn.addEventListener('click', () => {
+            if (questionBank.length > 0) {
+                const randomIndex = Math.floor(Math.random() * questionBank.length);
+                const newQ = questionBank.splice(randomIndex, 1)[0]; // Remove question from bank to avoid repeats
+                const questionEl = createQuestionElement(newQ, questionCounter);
+                newQuestionContainer.appendChild(questionEl);
+                questionCounter++;
+
+                if(questionBank.length === 0){
+                    generateQuestionBtn.textContent = "All Questions Shown";
+                    generateQuestionBtn.disabled = true;
+                    generateQuestionBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                }
+            }
+        });
+
+        questionsContainer.addEventListener('click', function(e) {
+            if (e.target.classList.contains('toggle-explanation-btn')) {
+                const explanation = e.target.nextElementSibling;
+                explanation.classList.toggle('hidden');
+                e.target.textContent = explanation.classList.contains('hidden') ? 'Show Explanation' : 'Hide Explanation';
+            }
+        });
+
+
+        // --- Initial Setup & Event Listeners ---
+        function init() {
+            beakerMolaritySlider.addEventListener('input', () => {});
+            cellMolaritySlider.addEventListener('input', () => {});
+            temperatureSlider.addEventListener('input', () => {});
+
+            soilWaterSlider.addEventListener('input', updateTreeDisplays);
+            transpirationSlider.addEventListener('input', updateTreeDisplays);
+
+            updateTreeDisplays();
+            drawCellSimulation();
+            drawTreeSimulation();
+        }
+
+        window.onload = init;
+        window.onresize = () => {};
+
+    </script>
+</body>
+</html>
+
